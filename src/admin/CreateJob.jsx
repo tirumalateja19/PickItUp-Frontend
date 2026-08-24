@@ -69,6 +69,7 @@ const CreateJob = () => {
       label: "Client Number",
       name: "clientNumber",
       type: "tel",
+      maxLength:10,
       placeholder: "Enter mobile number",
       icon: Phone,
       required: true,

@@ -44,6 +44,7 @@ const JobDetailsForm = ({ jobData, jobId, setJobData }) => {
     jobData.receiverAddress || "",
   );
   const [receiverCity, setReceiverCity] = useState(jobData.receiverCity || "");
+  const [receiverCountry, setReceiverCountry] = useState(jobData.receiverCountry || "");
   const [receiverZipCode, setReceiverZipCode] = useState(
     jobData.receiverZipCode || "",
   );
@@ -102,6 +103,7 @@ const JobDetailsForm = ({ jobData, jobId, setJobData }) => {
         receiverNumber,
         receiverAddress,
         receiverCity,
+        receiverCountry,
         receiverZipCode,
       });
       setJobData((prev) => ({ ...prev, ...response.data.jobData }));
@@ -160,15 +162,17 @@ const JobDetailsForm = ({ jobData, jobId, setJobData }) => {
               type="text"
               placeholder="Receiver Name"
               value={receiverName}
+              required
               onChange={(e) => setReceiverName(e.target.value)}
               className={inputClass}
             />
           </div>
           <div className="w-full">
             <input
-              type="tel"
+              type="text"
               placeholder="Receiver Number"
               value={receiverNumber}
+              required
               onChange={(e) => setReceiverNumber(e.target.value)}
               className={inputClass}
             />
@@ -178,6 +182,7 @@ const JobDetailsForm = ({ jobData, jobId, setJobData }) => {
           type="text"
           placeholder="Receiver Address"
           value={receiverAddress}
+          required
           onChange={(e) => setReceiverAddress(e.target.value)}
           className={inputClass}
         />
@@ -187,7 +192,18 @@ const JobDetailsForm = ({ jobData, jobId, setJobData }) => {
               type="text"
               placeholder="City"
               value={receiverCity}
+              required
               onChange={(e) => setReceiverCity(e.target.value)}
+              className={inputClass}
+            />
+          </div>
+          <div className="w-full">
+            <input
+              type="text"
+              placeholder="Country"
+              value={receiverCountry}
+              required
+              onChange={(e) => setReceiverCountry(e.target.value)}
               className={inputClass}
             />
           </div>
@@ -222,6 +238,7 @@ const JobDetailsForm = ({ jobData, jobId, setJobData }) => {
               type="text"
               placeholder="0.00"
               value={price}
+              required
               onChange={(e) => setPrice(e.target.value)}
               className={inputClass}
             />
@@ -232,8 +249,14 @@ const JobDetailsForm = ({ jobData, jobId, setJobData }) => {
               type="number"
               placeholder="0"
               value={numberOfPackages}
-              min="0"
-              onChange={(e) => handleNumberOfPackagesChange(e.target.value)}
+              required
+              min="1"
+              max="7"
+              onChange={(e) => {
+                let val = e.target.value;
+                if (Number(val) > 7) val = "7";
+                handleNumberOfPackagesChange(val);
+              }}
               className={inputClass}
             />
           </div>
@@ -266,6 +289,7 @@ const JobDetailsForm = ({ jobData, jobId, setJobData }) => {
                     type="number"
                     placeholder="0.0"
                     value={pkg.weight}
+                    required
                     onChange={(e) =>
                       updatePackageField(index, "weight", e.target.value)
                     }
@@ -278,6 +302,7 @@ const JobDetailsForm = ({ jobData, jobId, setJobData }) => {
                     type="number"
                     placeholder="L"
                     value={pkg.length}
+                    required
                     onChange={(e) =>
                       updatePackageField(index, "length", e.target.value)
                     }
@@ -290,6 +315,7 @@ const JobDetailsForm = ({ jobData, jobId, setJobData }) => {
                     type="number"
                     placeholder="B"
                     value={pkg.breadth}
+                    required
                     onChange={(e) =>
                       updatePackageField(index, "breadth", e.target.value)
                     }
@@ -302,6 +328,7 @@ const JobDetailsForm = ({ jobData, jobId, setJobData }) => {
                     type="number"
                     placeholder="H"
                     value={pkg.height}
+                    required
                     onChange={(e) =>
                       updatePackageField(index, "height", e.target.value)
                     }

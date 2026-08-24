@@ -86,7 +86,7 @@ const Login = () => {
               <PackageCheck className="size-6" strokeWidth={2.5} />
             </div>
             <h1 className="text-2xl font-bold tracking-tight text-black">
-              PickItUp
+              PickItUp - A Courier Logistics Platform
             </h1>
           </div>
 

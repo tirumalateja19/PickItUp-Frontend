@@ -4,6 +4,14 @@ A React frontend for **PickItUp**, a courier logistics management platform. Admi
 
 This is the frontend half of a full-stack MERN application. It talks to a separate Node.js/Express/MongoDB backend (JWT auth, BullMQ + Puppeteer for background PDF generation, Cloudinary for file storage).
 
+## 🌐 Live Demo
+
+**https://pickit-up.netlify.app/**
+
+> 🔗 **Backend Repository: https://github.com/tirumalateja19/PickItUp-Backend** 
+
+---
+
 ![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=white)
 ![Vite](https://img.shields.io/badge/Vite-Build-646CFF?logo=vite&logoColor=white)
 ![React Router](https://img.shields.io/badge/React_Router-7-CA4245?logo=reactrouter&logoColor=white)

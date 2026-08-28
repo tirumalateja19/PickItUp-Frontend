@@ -12,6 +12,7 @@ import {
   ChartNoAxesCombined,
   Package,
   PackagePlus,
+  UserCog,
 } from "lucide-react";
 import { useAuth } from "../context/useAuth";
 
@@ -97,7 +98,7 @@ const Layout = () => {
                         : "text-gray-600 hover:bg-gray-200"
                     }`
                   }
-                  title={!sidebarOpen ? link.label : undefined} // Tooltip when collapsed
+                  title={!sidebarOpen ? link.label : undefined}
                 >
                   <Icon className="size-5 shrink-0" />
                   {sidebarOpen && (
@@ -166,7 +167,19 @@ const Layout = () => {
           >
             <Menu size={20} />
           </button>
-          <h1 className="text-lg font-semibold text-black">{pageTitle}</h1>
+          <h1 className="text-lg font-semibold text-black flex-1">
+            {pageTitle}
+          </h1>
+
+          {location.pathname === "/admin/jobs/create-partner" && (
+            <NavLink
+              to="/admin/jobs/create-admin"
+              className="flex items-center gap-2 text-sm px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-100 transition"
+            >
+              <UserCog className="size-4" />
+              Create Admin
+            </NavLink>
+          )}
         </header>
         <main className="flex-1 overflow-auto p-3 sm:p-4 lg:p-6 bg-white">
           <Outlet />

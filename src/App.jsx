@@ -16,6 +16,7 @@ import AuditLogDetail from "./admin/AuditLogDetails.jsx";
 import ArchivedJobs from "./admin/ArchivedJobs.jsx";
 import PartnerStats from "./partner/PartnerStats.jsx";
 import AdminStats from "./admin/AdminStats.jsx";
+import CreateAdmin from "./admin/CreateAdmin.jsx";
 
 const App = () => {
   return (
@@ -37,6 +38,10 @@ const App = () => {
             <Route
               path="/admin/jobs/create-partner"
               element={<CreatePartner />}
+            ></Route>
+            <Route
+              path="/admin/jobs/create-admin"
+              element={<CreateAdmin />}
             ></Route>
             <Route path="/admin/stats" element={<AdminStats />}></Route>
             <Route path="/admin/jobs/:id" element={<AdminJobDetail />}></Route>

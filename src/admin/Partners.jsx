@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import toast from "react-hot-toast";
 import {
-  Users,
   User,
   Phone,
   Search,
@@ -91,42 +90,29 @@ const AdminPartners = () => {
 
   return (
     <div className="p-2">
-      {/* Header */}
-
-      <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div className="flex items-center gap-3">
-          <Users size={24} className="text-black" />
-
-          <h1 className="text-xl font-bold text-black">Partners</h1>
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="relative max-w-sm w-full">
+          <Search
+            size={18}
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"
+          />
+          <input
+            type="text"
+            placeholder="Search by username or contact..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full rounded-lg border border-gray-300 py-2.5 pl-10 pr-4 outline-none transition focus:border-black"
+          />
         </div>
 
         <Link
           to="/admin/jobs/create-partner"
-          className="flex items-center gap-2 rounded-lg bg-black px-4 py-2 font-semibold text-white transition hover:bg-gray-800"
+          className="flex items-center justify-center gap-2 rounded-lg bg-black px-4 py-2 font-semibold text-white transition hover:bg-gray-800 shrink-0"
         >
           <Plus size={18} />
           Create Partner
         </Link>
       </div>
-
-      {/* Search */}
-
-      <div className="relative mb-6 max-w-sm">
-        <Search
-          size={18}
-          className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"
-        />
-
-        <input
-          type="text"
-          placeholder="Search by username or contact..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="w-full rounded-lg border border-gray-300 py-2.5 pl-10 pr-4 outline-none transition focus:border-black"
-        />
-      </div>
-
-      {/* Loading */}
 
       {loading && (
         <div className="flex justify-center py-10">
@@ -134,21 +120,15 @@ const AdminPartners = () => {
         </div>
       )}
 
-      {/* Error */}
-
       {error && (
         <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600">
           {error}
         </div>
       )}
 
-      {/* Empty */}
-
       {!loading && !error && filteredPartners.length === 0 && (
         <p className="text-gray-500">No partners found.</p>
       )}
-
-      {/* List */}
 
       {!loading && !error && filteredPartners.length > 0 && (
         <div className="grid gap-3">

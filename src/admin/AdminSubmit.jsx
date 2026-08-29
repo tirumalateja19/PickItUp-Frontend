@@ -1,6 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import toast from "react-hot-toast";
 import api from "../api/axios";
+
+const POLL_INTERVAL_MS = 3000;
+const MAX_POLL_ATTEMPTS = 20; // ~1 minute ceiling before giving up
 
 const downloadPdf = async (url, filename) => {
   const response = await fetch(url);
@@ -17,45 +20,88 @@ const downloadPdf = async (url, filename) => {
 
 const AdminSubmit = ({ jobData, jobId, setJobData }) => {
   const [submitting, setSubmitting] = useState(false);
-  const [checkingPodSlip, setCheckingPodSlip] = useState(false);
   const [podSlipUrl, setPodSlipUrl] = useState(null);
+
+  const pollTimerRef = useRef(null);
+  const pollAttemptsRef = useRef(0);
+  const pollRef = useRef(null);
 
   const refetchJob = async () => {
     const response = await api.get(`/api/jobs/${jobId}`);
     setJobData(response.data.jobData);
   };
 
+  const stopPolling = () => {
+    if (pollTimerRef.current) {
+      clearTimeout(pollTimerRef.current);
+      pollTimerRef.current = null;
+    }
+    pollAttemptsRef.current = 0;
+    setSubmitting(false);
+  };
+
+  const poll = useCallback(async () => {
+    try {
+      const response = await api.get(`/api/jobs/${jobId}/pod-slip`);
+      const { podSlipStatus, podSlip } = response.data;
+
+      if (podSlipStatus === "ready") {
+        setPodSlipUrl(podSlip?.pdfUrl || null);
+        toast.success("Pod slip ready");
+        await refetchJob();
+        stopPolling();
+        return;
+      }
+
+      if (podSlipStatus === "unchanged") {
+        setPodSlipUrl(podSlip?.pdfUrl || null);
+        toast("No changes detected");
+        stopPolling();
+        return;
+      }
+
+      if (podSlipStatus === "failed") {
+        setPodSlipUrl(podSlip?.pdfUrl || null);
+        toast.error("Pod slip generation failed — please try again");
+        stopPolling();
+        return;
+      }
+
+      pollAttemptsRef.current += 1;
+      if (pollAttemptsRef.current >= MAX_POLL_ATTEMPTS) {
+        toast.error("Still generating — check back in a bit");
+        stopPolling();
+        return;
+      }
+      pollTimerRef.current = setTimeout(
+        () => pollRef.current(),
+        POLL_INTERVAL_MS,
+      );
+    } catch (err) {
+      toast.error(err?.response?.data?.message || "Failed to check pod slip");
+      stopPolling();
+    }
+  }, [jobId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    pollRef.current = poll;
+  }, [poll]);
+
   const handleSubmit = async () => {
     setSubmitting(true);
+    setPodSlipUrl(null);
     try {
       const response = await api.post(`/api/jobs/${jobId}/submit`);
       toast.success(response.data.message || "Pod slip generating");
       await refetchJob();
-
-      setTimeout(() => {
-        setSubmitting(false);
-      }, 4000);
-      return;
+      pollAttemptsRef.current = 0;
+      pollTimerRef.current = setTimeout(
+        () => pollRef.current(),
+        POLL_INTERVAL_MS,
+      );
     } catch (err) {
       toast.error(err?.response?.data?.message || "Failed to submit job");
-    }
-    setSubmitting(false);
-  };
-
-  const handleCheckPodSlip = async () => {
-    setCheckingPodSlip(true);
-    try {
-      const response = await api.get(`/api/jobs/${jobId}/pod-slip`);
-      setPodSlipUrl(response.data.podSlip.pdfUrl);
-      toast.success("Pod slip is ready");
-    } catch (err) {
-      if (err?.response?.status === 404) {
-        toast.error("Not generated yet — check back shortly");
-      } else {
-        toast.error(err?.response?.data?.message || "Failed to check pod slip");
-      }
-    } finally {
-      setCheckingPodSlip(false);
+      setSubmitting(false);
     }
   };
 
@@ -66,6 +112,28 @@ const AdminSubmit = ({ jobData, jobId, setJobData }) => {
       toast.error("Failed to download pod slip", err);
     }
   };
+
+  useEffect(() => {
+    if (!jobData.podSlipGenerated) return;
+
+    const fetchExisting = async () => {
+      try {
+        const response = await api.get(`/api/jobs/${jobId}/pod-slip`);
+        if (response.data.podSlip?.pdfUrl) {
+          setPodSlipUrl(response.data.podSlip.pdfUrl);
+        }
+      } catch {
+        // silent — user can still hit Generate/Submit
+      }
+    };
+    fetchExisting();
+  }, [jobId, jobData.podSlipGenerated]);
+
+  useEffect(() => {
+    return () => {
+      if (pollTimerRef.current) clearTimeout(pollTimerRef.current);
+    };
+  }, []);
 
   return (
     <div>
@@ -91,15 +159,7 @@ const AdminSubmit = ({ jobData, jobId, setJobData }) => {
           {submitting ? "Generating..." : "Generate pod slip"}
         </button>
 
-        <button
-          onClick={handleCheckPodSlip}
-          disabled={checkingPodSlip}
-          className="text-sm px-4 py-2 rounded-lg bg-gray-200 text-black hover:bg-gray-300 transition disabled:opacity-50"
-        >
-          {checkingPodSlip ? "Checking..." : "Check pod slip"}
-        </button>
-
-        {podSlipUrl && (
+        {!submitting && podSlipUrl && (
           <button
             onClick={handleDownloadPodSlip}
             className="text-sm px-4 py-2 rounded-lg bg-gray-200 text-black hover:bg-gray-300 transition"

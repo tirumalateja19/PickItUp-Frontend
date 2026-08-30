@@ -14,13 +14,12 @@ import api from "../api/axios";
 const STATUS_OPTIONS = [
   { value: "", label: "All" },
   { value: "Open", label: "Open" },
-  { value: "Closed", label: "Closed" },
-  { value: "Created", label: "Created" },
-  { value: "Assigned", label: "Assigned" },
-  { value: "PickedUp", label: "Picked Up" },
-  { value: "AtOffice", label: "At Office" },
-  { value: "Dispatched", label: "Dispatched" },
+  { value: "Completed", label: "Closed" },
   { value: "Cancelled", label: "Cancelled" },
+  { value: "PickedUp", label: "Picked Up" },
+  // { value: "Created", label: "Created" },
+  // { value: "Assigned", label: "Assigned" },
+  // { value: "AtOffice", label: "At Office" },
 ];
 
 const MONTHS = [

@@ -1,14 +1,15 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
-import { ChevronDown, Calendar, Lock, Loader2 } from "lucide-react";
+import { ChevronDown, Calendar, Lock, Loader2, Search } from "lucide-react";
 import api from "../api/axios";
 import toast from "react-hot-toast";
 
 const STATUS_OPTIONS = [
   { value: "", label: "All" },
   { value: "Open", label: "Open" },
-  { value: "Closed", label: "Closed" },
+  { value: "Completed", label: "Closed" },
   { value: "AtOffice", label: "At Office" },
+  { value: "Cancelled", label: "Cancelled" },
 ];
 
 const MONTHS = [
@@ -67,8 +68,19 @@ const PartnerDashboard = () => {
   const [statusFilter, setStatusFilter] = useState("");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
+  const [searchInput, setSearchInput] = useState("");
+  const [clientNameFilter, setClientNameFilter] = useState("");
 
   const navigate = useNavigate();
+
+  // Wait 400ms after typing stops before updating the debounced value.
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setClientNameFilter(searchInput);
+      setCurrentPage(1);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [searchInput]);
 
   // Fetch Jobs with standard pagination
   useEffect(() => {
@@ -80,6 +92,7 @@ const PartnerDashboard = () => {
         if (statusFilter) params.status = statusFilter;
         if (fromDate) params.fromDate = fromDate;
         if (toDate) params.toDate = toDate;
+        if (clientNameFilter) params.clientName = clientNameFilter;
 
         const response = await api.get("/api/partner/jobs", { params });
         setJobs(response.data.jobs);
@@ -92,7 +105,7 @@ const PartnerDashboard = () => {
     };
 
     fetchJobs();
-  }, [statusFilter, fromDate, toDate, currentPage]);
+  }, [statusFilter, fromDate, toDate, clientNameFilter, currentPage]);
 
   const handleJobClick = (job) => {
     if (job.locked) {
@@ -106,6 +119,17 @@ const PartnerDashboard = () => {
     <div className="p-2">
       {/* Pill filter bar */}
       <div className="flex flex-wrap gap-2 mb-6">
+        <div className="relative flex items-center gap-2 pl-4 pr-3 py-2 rounded-full border border-gray-400 bg-white text-sm text-gray-700">
+          <Search className="size-4 text-gray-400" />
+          <input
+            type="text"
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            placeholder="Search client name"
+            className="bg-transparent focus:outline-none text-sm w-40"
+          />
+        </div>
+
         <PillSelect
           value={statusFilter}
           onChange={(e) => {

@@ -5,7 +5,7 @@ import api from "../api/axios";
 const inputClass = "p-2 rounded-lg border border-gray-300 text-sm";
 
 // Reusable text input with a filtered, click-to-select suggestions dropdown.
-const ItemNameInput = ({
+export const ItemNameInput = ({
   value,
   onChange,
   suggestions,
@@ -26,12 +26,24 @@ const ItemNameInput = ({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  const q = value.trim().toLowerCase();
+
   const filtered =
-    value.trim() === ""
+    q === ""
       ? []
-      : suggestions.filter((s) =>
-          s.toLowerCase().includes(value.trim().toLowerCase()),
-        );
+      : suggestions
+          .map((s) => {
+            const name = s.toLowerCase();
+            if (name === q) return null;
+            if (name.startsWith(q)) return { s, rank: 0 };
+            if (name.split(/\s+/).some((w) => w.startsWith(q)))
+              return { s, rank: 1 };
+            return null;
+          })
+          .filter(Boolean)
+          .sort((a, b) => a.rank - b.rank || a.s.localeCompare(b.s))
+          .slice(0, 8)
+          .map((x) => x.s);
 
   return (
     <div ref={wrapperRef} className="relative">

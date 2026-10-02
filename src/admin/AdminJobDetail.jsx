@@ -3,7 +3,6 @@ import { useParams, Link } from "react-router";
 import toast from "react-hot-toast";
 import api from "../api/axios";
 import JobDetailsForm from "../jobs/JobDetailsForm";
-import Items from "../jobs/Items";
 import PhotoUpload from "../jobs/PhotoUpload";
 import AdminSubmit from "./AdminSubmit";
 import Shipment from "../jobs/Shipment";
@@ -297,21 +296,18 @@ const AdminJobDetail = () => {
           </div>
 
           <div className={sectionClass}>
-            <h3 className={sectionLabelClass}>Items</h3>
-            <Items items={items} jobId={id} setItems={setItems} />
+            <JobDetailsForm
+              jobData={jobData}
+              jobId={id}
+              setJobData={setJobData}
+              items={items}
+              setItems={setItems}
+            />
           </div>
 
           <div className={sectionClass}>
             <h3 className={sectionLabelClass}>Photo upload</h3>
             <PhotoUpload jobId={id} locked={jobData.locked} />
-          </div>
-
-          <div className={sectionClass}>
-            <JobDetailsForm
-              jobData={jobData}
-              jobId={id}
-              setJobData={setJobData}
-            />
           </div>
 
           <div className={sectionClass}>

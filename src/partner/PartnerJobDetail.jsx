@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams,Link } from "react-router";
 import api from "../api/axios";
-import Items from "../jobs/Items";
 import JobDetailsForm from "../jobs/JobDetailsForm";
 import PhotoUpload from "../jobs/PhotoUpload";
 import SubmitSection from "../jobs/SubmitSection";
@@ -68,21 +67,18 @@ const PartnerJobDetail = () => {
           </div>
 
           <div className={sectionClass}>
-            <h3 className={sectionLabelClass}>Items</h3>
-            <Items items={items} jobId={id} setItems={setItems} />
+            <JobDetailsForm
+              jobData={jobData}
+              jobId={id}
+              setJobData={setJobData}
+              items={items}
+              setItems={setItems}
+            />
           </div>
 
           <div className={sectionClass}>
             <h3 className={sectionLabelClass}>Photo upload</h3>
             <PhotoUpload jobId={id} />
-          </div>
-
-          <div className={sectionClass}>
-            <JobDetailsForm
-              jobData={jobData}
-              jobId={id}
-              setJobData={setJobData}
-            />
           </div>
 
           <SubmitSection jobData={jobData} jobId={id} setJobData={setJobData} />

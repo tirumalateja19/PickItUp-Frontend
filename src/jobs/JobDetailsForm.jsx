@@ -1,41 +1,59 @@
-import { useState, useMemo } from "react";
+import { useState, useEffect } from "react";
 import toast from "react-hot-toast";
 import api from "../api/axios";
+import ItemNameInput from "./ItemNameInput";
 
 const PACKING_OPTIONS = [
   { value: "packed_at_source", label: "Packed at client" },
   { value: "packed_at_office", label: "Packed at Office" },
 ];
 
+const MAX_PACKAGES = 7;
+
+// Client-generated ObjectId so a new box has a valid _id before it is saved
+const newObjectId = () =>
+  Math.floor(Date.now() / 1000).toString(16) +
+  Array.from({ length: 16 }, () =>
+    Math.floor(Math.random() * 16).toString(16),
+  ).join("");
+
+const normName = (s) => (s || "").trim().toLowerCase().replace(/\s+/g, " ");
+
+// keys of items whose name appears more than once in the same box
+const getDuplicateKeys = (pkg) => {
+  const seen = new Map();
+  const dups = new Set();
+  pkg.items.forEach((it) => {
+    const n = normName(it.itemName);
+    if (!n) return;
+    if (seen.has(n)) {
+      dups.add(it.key);
+      dups.add(seen.get(n));
+    } else {
+      seen.set(n, it.key);
+    }
+  });
+  return dups;
+};
+
+const emptyItem = () => ({
+  key: newObjectId(), // React key only, never sent to the server
+  itemName: "",
+  quantity: "",
+  fragile: false,
+});
+
 const emptyPackage = () => ({
-  weight: "",
+  _id: newObjectId(),
+  unit: "cm",
+  weight: "", // actual weight
   length: "",
   breadth: "",
   height: "",
+  items: [emptyItem()],
 });
 
-// Single source of truth for Volumetric + Courier Chargeable Weight calculation
-const getChargeableWeight = (pkg) => {
-  const actual = parseFloat(pkg.weight) || 0;
-  const l = parseFloat(pkg.length) || 0;
-  const b = parseFloat(pkg.breadth) || 0;
-  const h = parseFloat(pkg.height) || 0;
-
-  const rawVolumetric = (l * b * h) / 5000;
-
-  let roundedVolumetric = 0;
-  if (rawVolumetric > 0) {
-    roundedVolumetric =
-      rawVolumetric < 20
-        ? Math.ceil(rawVolumetric * 2) / 2
-        : Math.ceil(rawVolumetric);
-  }
-
-  const chargeable = Math.max(actual, roundedVolumetric);
-  return chargeable > 0 ? chargeable.toFixed(2) : "0.00";
-};
-
-const JobDetailsForm = ({ jobData, jobId, setJobData }) => {
+const JobDetailsForm = ({ jobData, jobId, setJobData, items, setItems }) => {
   const [receiverName, setReceiverName] = useState(jobData.receiverName || "");
   const [receiverNumber, setReceiverNumber] = useState(
     jobData.receiverNumber || "",
@@ -44,7 +62,9 @@ const JobDetailsForm = ({ jobData, jobId, setJobData }) => {
     jobData.receiverAddress || "",
   );
   const [receiverCity, setReceiverCity] = useState(jobData.receiverCity || "");
-  const [receiverCountry, setReceiverCountry] = useState(jobData.receiverCountry || "");
+  const [receiverCountry, setReceiverCountry] = useState(
+    jobData.receiverCountry || "",
+  );
   const [receiverZipCode, setReceiverZipCode] = useState(
     jobData.receiverZipCode || "",
   );
@@ -56,41 +76,122 @@ const JobDetailsForm = ({ jobData, jobId, setJobData }) => {
   const [price, setPrice] = useState(
     jobData.price && jobData.price !== "1" ? jobData.price : "",
   );
-  const [numberOfPackages, setNumberOfPackages] = useState(
-    jobData.numberOfPackages || "",
-  );
 
+  // One box by default; saved boxes carry their items inside them
   const [packages, setPackages] = useState(() => {
-    if (jobData.packages && jobData.packages.length > 0)
-      return jobData.packages;
-    const n = parseInt(jobData.numberOfPackages, 10) || 0;
-    return Array.from({ length: n }, emptyPackage);
+    if (!jobData.packages?.length) return [emptyPackage()];
+
+    const ids = new Set(jobData.packages.map((p) => String(p._id)));
+    return jobData.packages.map((p, i) => {
+      const mine = (items || []).filter(
+        (it) =>
+          String(it.packageId) === String(p._id) ||
+          // legacy / orphaned items fall into the first box
+          (i === 0 && !ids.has(String(it.packageId))),
+      );
+      return {
+        ...p,
+        unit: p.unit || "cm",
+        weight: p.actualWeight ?? p.weight ?? "",
+        items: mine.length
+          ? mine.map((it) => ({
+              key: it._id,
+              itemName: it.itemName,
+              quantity: it.quantity,
+              fragile: it.fragile,
+            }))
+          : [emptyItem()],
+      };
+    });
   });
 
   const [savingPackage, setSavingPackage] = useState(false);
+  const [suggestions, setSuggestions] = useState([]);
 
-  // Calculates total chargeable weight cleanly across all packages
-  const totalChargeableWeight = useMemo(() => {
-    let total = 0;
-    packages.forEach((pkg) => {
-      total += parseFloat(getChargeableWeight(pkg)) || 0;
-    });
-    return total.toFixed(2);
-  }, [packages]);
+  // Server-calculated weights (volumetric + chargeable), shown on each card
+  const [preview, setPreview] = useState(null);
 
-  const handleNumberOfPackagesChange = (value) => {
-    setNumberOfPackages(value);
-    const n = parseInt(value, 10) || 0;
-    setPackages((prev) => {
-      const next = [...prev];
-      while (next.length < n) next.push(emptyPackage());
-      return next.slice(0, n);
-    });
-  };
+  useEffect(() => {
+    api
+      .get("/api/jobs/pickup/items/suggestions")
+      .then((r) => setSuggestions(r.data.suggestions || []))
+      .catch(() => {});
+  }, []);
+
+  // Debounced call to the weight calculator whenever dimensions/weights change
+  const calcKey = JSON.stringify(
+    packages.map(({ unit, weight, length, breadth, height }) => ({
+      unit,
+      actualWeight: weight,
+      length,
+      breadth,
+      height,
+    })),
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      try {
+        const res = await api.post("/api/jobs/pickup/weight/calculate", {
+          packages: JSON.parse(calcKey),
+        });
+        if (!cancelled) setPreview(res.data);
+      } catch {
+        // preview is a convenience; the save route recalculates anyway
+      }
+    }, 400);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [calcKey]);
 
   const updatePackageField = (index, field, value) => {
     setPackages((prev) =>
       prev.map((pkg, i) => (i === index ? { ...pkg, [field]: value } : pkg)),
+    );
+  };
+
+  const addPackage = () => {
+    setPackages((prev) =>
+      prev.length >= MAX_PACKAGES ? prev : [...prev, emptyPackage()],
+    );
+  };
+
+  const removePackage = (id) => {
+    if (!window.confirm("Remove this box and its items?")) return;
+    setPackages((prev) => prev.filter((p) => p._id !== id));
+  };
+
+  const addItem = (pi) => {
+    setPackages((prev) =>
+      prev.map((p, i) =>
+        i === pi ? { ...p, items: [...p.items, emptyItem()] } : p,
+      ),
+    );
+  };
+
+  const updateItem = (pi, key, field, value) => {
+    setPackages((prev) =>
+      prev.map((p, i) =>
+        i === pi
+          ? {
+              ...p,
+              items: p.items.map((it) =>
+                it.key === key ? { ...it, [field]: value } : it,
+              ),
+            }
+          : p,
+      ),
+    );
+  };
+
+  const removeItem = (pi, key) => {
+    setPackages((prev) =>
+      prev.map((p, i) =>
+        i === pi ? { ...p, items: p.items.filter((it) => it.key !== key) } : p,
+      ),
     );
   };
 
@@ -119,25 +220,39 @@ const JobDetailsForm = ({ jobData, jobId, setJobData }) => {
 
   const handleSavePackage = async (e) => {
     e.preventDefault();
+
+    // Same item name twice in one box is not allowed
+    const dupBox = packages.findIndex((p) => getDuplicateKeys(p).size > 0);
+    if (dupBox !== -1) {
+      toast.error(
+        `Box ${dupBox + 1} has the same item twice. Combine their quantities.`,
+      );
+      return;
+    }
+
     setSavingPackage(true);
     try {
-      const processedPackages = packages.map((pkg) => {
-        const chargeableWeight = parseFloat(getChargeableWeight(pkg)) || 0;
-        return {
-          weight: chargeableWeight,
-          length: parseFloat(pkg.length) || 0,
-          breadth: parseFloat(pkg.breadth) || 0,
-          height: parseFloat(pkg.height) || 0,
-        };
-      });
+      const payload = packages.map((pkg) => ({
+        _id: pkg._id,
+        unit: pkg.unit,
+        actualWeight: parseFloat(pkg.weight) || 0,
+        length: parseFloat(pkg.length) || 0,
+        breadth: parseFloat(pkg.breadth) || 0,
+        height: parseFloat(pkg.height) || 0,
+        items: pkg.items.map(({ itemName, quantity, fragile }) => ({
+          itemName: itemName.trim(),
+          quantity: Number(quantity),
+          fragile,
+        })),
+      }));
 
-      const response = await api.patch(`/api/jobs/pickup/${jobId}/details`, {
-        packages: processedPackages,
+      const response = await api.put(`/api/jobs/pickup/${jobId}/packages`, {
+        packages: payload,
         packingStatus,
         price: parseFloat(price) || 0,
-        numberOfPackages: parseInt(numberOfPackages, 10) || 0,
       });
       setJobData((prev) => ({ ...prev, ...response.data.jobData }));
+      setItems(response.data.items);
       toast.success("Package info saved");
     } catch (err) {
       toast.error(
@@ -149,7 +264,11 @@ const JobDetailsForm = ({ jobData, jobId, setJobData }) => {
   };
 
   const inputClass = "p-2 rounded-lg border border-gray-300 text-sm w-full";
+  const itemInputClass = "p-2 rounded-lg border border-gray-300 text-sm";
   const labelClass = "block text-xs font-medium text-gray-700 mb-1";
+
+  const fmt = (n) =>
+    n === undefined || n === null ? "--" : Number(n).toFixed(2);
 
   return (
     <div className="flex flex-col gap-6">
@@ -230,127 +349,180 @@ const JobDetailsForm = ({ jobData, jobId, setJobData }) => {
       <form onSubmit={handleSavePackage} className="flex flex-col gap-3">
         <h3 className="font-semibold text-black">Package Info</h3>
 
-        {/* Price & Package Count */}
-        <div className="flex gap-2">
-          <div className="w-full">
-            <label className={labelClass}>Price</label>
-            <input
-              type="text"
-              placeholder="0.00"
-              value={price}
-              required
-              onChange={(e) => setPrice(e.target.value)}
-              className={inputClass}
-            />
-          </div>
-          <div className="w-full">
-            <label className={labelClass}>Number of Packages</label>
-            <input
-              type="number"
-              placeholder="0"
-              value={numberOfPackages}
-              required
-              min="1"
-              max="7"
-              onChange={(e) => {
-                let val = e.target.value;
-                if (Number(val) > 7) val = "7";
-                handleNumberOfPackagesChange(val);
-              }}
-              className={inputClass}
-            />
-          </div>
-        </div>
-
-        {/* Dynamic Package Cards */}
+        {/* Box cards */}
         {packages.map((pkg, index) => {
-          const preferredWeight = getChargeableWeight(pkg);
+          const unit = pkg.unit || "cm";
+          const calc = preview?.packages?.[index];
+          const dupKeys = getDuplicateKeys(pkg);
 
           return (
             <div
-              key={index}
+              key={pkg._id}
               className="border border-gray-200 rounded-lg p-3 bg-white"
             >
-              <div className="flex justify-between items-center mb-2">
+              <div className="flex flex-wrap justify-between items-center gap-2 mb-2">
                 <span className="text-xs font-semibold text-black">
-                  Package {index + 1}
+                  Box {index + 1}
                 </span>
-                {parseFloat(preferredWeight) > 0 && (
-                  <span className="text-xs font-medium text-black bg-gray-100 px-2 py-1 rounded">
-                    Preferred Weight: <strong>{preferredWeight} kg</strong>
-                  </span>
-                )}
+                <div className="flex items-center gap-2">
+                  <select
+                    value={unit}
+                    onChange={(e) =>
+                      updatePackageField(index, "unit", e.target.value)
+                    }
+                    className="p-1.5 rounded-lg border border-gray-300 text-xs"
+                  >
+                    <option value="cm">Centimeter</option>
+                    <option value="in">Inch</option>
+                  </select>
+                  {packages.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => removePackage(pkg._id)}
+                      className="text-xs px-2 py-1 rounded-lg bg-red-100 text-red-700 hover:bg-red-200 transition"
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
               </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                <div>
-                  <label className={labelClass}>Weight (kg)</label>
-                  <input
-                    type="number"
-                    placeholder="0.0"
-                    value={pkg.weight}
-                    required
-                    onChange={(e) =>
-                      updatePackageField(index, "weight", e.target.value)
-                    }
-                    className={inputClass}
-                  />
+                {[
+                  ["weight", "Actual Weight (kg)", "0.0"],
+                  ["length", `Length (${unit})`, "L"],
+                  ["breadth", `Breadth (${unit})`, "B"],
+                  ["height", `Height (${unit})`, "H"],
+                ].map(([field, label, ph]) => (
+                  <div key={field}>
+                    <label className={labelClass}>{label}</label>
+                    <input
+                      type="number"
+                      step="any"
+                      min="0"
+                      placeholder={ph}
+                      value={pkg[field]}
+                      required
+                      onChange={(e) =>
+                        updatePackageField(index, field, e.target.value)
+                      }
+                      className={inputClass}
+                    />
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex gap-2 mt-2">
+                <span className="flex-1 text-xs bg-gray-50 border border-gray-200 rounded px-2 py-1.5">
+                  Vol. Weight: <strong>{fmt(calc?.volWeight)} kg</strong>
+                </span>
+                <span className="flex-1 text-xs font-medium text-black bg-gray-100 rounded px-2 py-1.5">
+                  Charge Weight: <strong>{fmt(calc?.weight)} kg</strong>
+                </span>
+              </div>
+
+              {/* Items inside this box */}
+              <div className="mt-3 pt-3 border-t border-gray-100">
+                <p className="text-xs font-semibold text-black mb-2">
+                  Items in this box
+                </p>
+                <div className="flex flex-col gap-2">
+                  {pkg.items.map((it) => (
+                    <div
+                      key={it.key}
+                      className="flex flex-wrap items-center gap-2"
+                    >
+                      <div className="w-40">
+                        <ItemNameInput
+                          value={it.itemName}
+                          onChange={(v) =>
+                            updateItem(index, it.key, "itemName", v)
+                          }
+                          suggestions={suggestions}
+                          placeholder="Item name"
+                          required
+                          className={`${itemInputClass} w-full ${
+                            dupKeys.has(it.key) ? "border-red-500!" : ""
+                          }`}
+                        />
+                      </div>
+                      <input
+                        type="number"
+                        min="1"
+                        placeholder="Qty"
+                        required
+                        value={it.quantity}
+                        onChange={(e) =>
+                          updateItem(index, it.key, "quantity", e.target.value)
+                        }
+                        className={`${itemInputClass} w-20`}
+                      />
+                      <label className="flex items-center gap-1.5 text-sm text-gray-600">
+                        <input
+                          type="checkbox"
+                          checked={it.fragile}
+                          onChange={(e) =>
+                            updateItem(
+                              index,
+                              it.key,
+                              "fragile",
+                              e.target.checked,
+                            )
+                          }
+                        />
+                        Fragile
+                      </label>
+                      {pkg.items.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => removeItem(index, it.key)}
+                          className="text-xs px-2 py-1 rounded-lg bg-red-100 text-red-700 hover:bg-red-200 transition"
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                  ))}
                 </div>
-                <div>
-                  <label className={labelClass}>Length (cm)</label>
-                  <input
-                    type="number"
-                    placeholder="L"
-                    value={pkg.length}
-                    required
-                    onChange={(e) =>
-                      updatePackageField(index, "length", e.target.value)
-                    }
-                    className={inputClass}
-                  />
-                </div>
-                <div>
-                  <label className={labelClass}>Breadth (cm)</label>
-                  <input
-                    type="number"
-                    placeholder="B"
-                    value={pkg.breadth}
-                    required
-                    onChange={(e) =>
-                      updatePackageField(index, "breadth", e.target.value)
-                    }
-                    className={inputClass}
-                  />
-                </div>
-                <div>
-                  <label className={labelClass}>Height (cm)</label>
-                  <input
-                    type="number"
-                    placeholder="H"
-                    value={pkg.height}
-                    required
-                    onChange={(e) =>
-                      updatePackageField(index, "height", e.target.value)
-                    }
-                    className={inputClass}
-                  />
-                </div>
+
+                {dupKeys.size > 0 && (
+                  <p className="text-xs text-red-600 mt-2">
+                    The same item is listed more than once in this box. Combine
+                    them into one row with the total quantity.
+                  </p>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => addItem(index)}
+                  className="mt-2 text-xs px-3 py-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 transition"
+                >
+                  + Add item
+                </button>
               </div>
             </div>
           );
         })}
 
-        {/* Total Chargeable Weight directly above Packing Status */}
-        {packages.length > 0 && (
-          <div className="flex items-center justify-between bg-gray-50 border border-gray-200 rounded-lg p-3">
-            <span className="text-sm font-semibold text-gray-700">
-              Total Chargeable Weight:
-            </span>
-            <span className="text-base font-bold text-black">
-              {totalChargeableWeight} kg
-            </span>
-          </div>
+        {packages.length < MAX_PACKAGES && (
+          <button
+            type="button"
+            onClick={addPackage}
+            className="self-start text-sm px-4 py-1.5 rounded-lg bg-gray-100 hover:bg-gray-200 transition"
+          >
+            + Add another box
+          </button>
         )}
+
+        {/* Total Chargeable Weight directly above Packing Status */}
+        <div className="flex items-center justify-between bg-gray-50 border border-gray-200 rounded-lg p-3">
+          <span className="text-sm font-semibold text-gray-700">
+            Total Chargeable Weight:
+          </span>
+          <span className="text-base font-bold text-black">
+            {fmt(preview?.totalChargeableWeight)} kg
+          </span>
+        </div>
 
         {/* Packing Status Dropdown */}
         <div>
@@ -368,6 +540,18 @@ const JobDetailsForm = ({ jobData, jobId, setJobData }) => {
               </option>
             ))}
           </select>
+        </div>
+
+        <div>
+          <label className={labelClass}>Price</label>
+          <input
+            type="text"
+            placeholder="0.00"
+            value={price}
+            required
+            onChange={(e) => setPrice(e.target.value)}
+            className={inputClass}
+          />
         </div>
 
         <button

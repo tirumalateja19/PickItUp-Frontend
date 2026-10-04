@@ -10,6 +10,7 @@ import JobTimeline from "../jobs/JobTimeline";
 import JobSummary from "../jobs/JobSummary";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import CancelJob from "../jobs/CancelJob";
+import SectionCard from "../jobs/SectionCard";
 
 const LOCK_REASONS = [
   { value: "review", label: "Review" },
@@ -305,26 +306,29 @@ const AdminJobDetail = () => {
             />
           </div>
 
-          <div className={sectionClass}>
-            <h3 className={sectionLabelClass}>Photo upload</h3>
+          <SectionCard
+            step={4}
+            title="Photos"
+            subtitle="ID proof, waybill, packed box and more"
+          >
             <PhotoUpload jobId={id} locked={jobData.locked} />
-          </div>
+          </SectionCard>
 
-          <div className={sectionClass}>
-            <h3 className={sectionLabelClass}>Documents</h3>
-            <div className="flex flex-col gap-4">
-              <AdminSubmit
-                jobData={jobData}
-                jobId={id}
-                setJobData={setJobData}
-              />
-            </div>
-          </div>
+          <SectionCard
+            step={5}
+            title="Submit"
+            subtitle="Send to office and generate the POD slip"
+          >
+            <AdminSubmit jobData={jobData} jobId={id} setJobData={setJobData} />
+          </SectionCard>
 
-          <div className={sectionClass}>
-            <h3 className={sectionLabelClass}>Shipment</h3>
+          <SectionCard
+            step={6}
+            title="Shipment"
+            subtitle="Dispatch details"
+          >
             <Shipment jobData={jobData} jobId={id} setJobData={setJobData} />
-          </div>
+          </SectionCard>
         </div>
 
         <div className="flex flex-col gap-6">

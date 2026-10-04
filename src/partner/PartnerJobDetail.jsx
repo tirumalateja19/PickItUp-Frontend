@@ -7,10 +7,9 @@ import SubmitSection from "../jobs/SubmitSection";
 import JobTimeline from "../jobs/JobTimeline";
 import JobSummary from "../jobs/JobSummary";
 import { ArrowLeft, Loader2 } from "lucide-react";
+import SectionCard from "../jobs/SectionCard";
 
 const sectionClass = "border-t border-gray-200 pt-5";
-const sectionLabelClass = "text-base font-semibold text-black mb-3";
-
 const PartnerJobDetail = () => {
   const { id } = useParams();
   const [jobData, setJobData] = useState(null);
@@ -76,12 +75,26 @@ const PartnerJobDetail = () => {
             />
           </div>
 
-          <div className={sectionClass}>
-            <h3 className={sectionLabelClass}>Photo upload</h3>
-            <PhotoUpload jobId={id} />
-          </div>
+          <SectionCard
+            step={4}
+            title="Photos"
+            subtitle="ID proof, waybill, packed box and more"
+          >
+            <PhotoUpload jobId={id} locked={jobData.locked} />
+          </SectionCard>
 
-          <SubmitSection jobData={jobData} jobId={id} setJobData={setJobData} />
+          <SectionCard
+            step={5}
+            title="Submit"
+            subtitle="Send to office and generate the POD slip"
+          >
+            <SubmitSection
+              jobData={jobData}
+              jobId={id}
+              setJobData={setJobData}
+            />
+          </SectionCard>
+
         </div>
 
         <div className="flex flex-col gap-6">

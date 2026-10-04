@@ -1,7 +1,8 @@
-import { useState, useRef, useEffect } from "react";
-import { Upload, X, Trash2, Loader2 } from "lucide-react";
+import { useState, useEffect } from "react";
+import { X, Trash2, Loader2 } from "lucide-react";
 import toast from "react-hot-toast";
 import api from "../api/axios";
+import PhotoPicker from "./PhotoPicker";
 
 const LABEL_OPTIONS = [
   { value: "id_proof", label: "ID Proof" },
@@ -9,7 +10,6 @@ const LABEL_OPTIONS = [
   { value: "invoice", label: "Invoice" },
   { value: "packed_box", label: "Packed Box" },
   { value: "item_evidence", label: "Item Evidence" },
-  { value: "payment_reciept", label: "Payment Reciept" },
 ];
 
 const LABEL_LOOKUP = LABEL_OPTIONS.reduce((acc, opt) => {
@@ -21,7 +21,6 @@ const PhotoUpload = ({ jobId, locked = false }) => {
   const [label, setLabel] = useState("");
   const [file, setFile] = useState(null);
   const [uploading, setUploading] = useState(false);
-  const formRef = useRef(null);
 
   const [photos, setPhotos] = useState([]);
   const [photosLoading, setPhotosLoading] = useState(true);
@@ -43,10 +42,6 @@ const PhotoUpload = ({ jobId, locked = false }) => {
 
     fetchPhotos();
   }, [jobId]);
-
-  const handleFileChange = (e) => {
-    setFile(e.target.files[0] || null);
-  };
 
   const handleUpload = async (e) => {
     e.preventDefault();
@@ -74,7 +69,6 @@ const PhotoUpload = ({ jobId, locked = false }) => {
       setPhotos((prev) => [...prev, response.data.photo]);
       setLabel("");
       setFile(null);
-      formRef.current?.reset();
     } catch (err) {
       toast.error(err?.response?.data?.message || "Failed to upload photo");
     } finally {
@@ -98,7 +92,10 @@ const PhotoUpload = ({ jobId, locked = false }) => {
     }
   };
 
-  const grouped = photos.reduce((acc, photo) => {
+  // payment proofs are managed in the Payment section, not in this grid
+  const visiblePhotos = photos.filter((p) => p.label !== "payment_proof");
+
+  const grouped = visiblePhotos.reduce((acc, photo) => {
     (acc[photo.label] = acc[photo.label] || []).push(photo);
     return acc;
   }, {});
@@ -106,11 +103,7 @@ const PhotoUpload = ({ jobId, locked = false }) => {
   return (
     <div>
       {!locked && (
-        <form
-          ref={formRef}
-          onSubmit={handleUpload}
-          className="flex flex-col gap-3"
-        >
+        <form onSubmit={handleUpload} className="flex flex-col gap-3">
           <select
             value={label}
             onChange={(e) => setLabel(e.target.value)}
@@ -124,22 +117,7 @@ const PhotoUpload = ({ jobId, locked = false }) => {
             ))}
           </select>
 
-          <input
-            id="photo-file-input"
-            type="file"
-            accept="image/*"
-            onChange={handleFileChange}
-            className="hidden"
-          />
-          <label
-            htmlFor="photo-file-input"
-            className="flex items-center gap-2 p-3 rounded-lg border border-dashed border-gray-300 text-sm text-gray-500 cursor-pointer hover:border-gray-400 hover:bg-gray-50 transition"
-          >
-            <Upload className="size-4 shrink-0" />
-            <span className="truncate">
-              {file ? file.name : "Click to choose a photo"}
-            </span>
-          </label>
+          <PhotoPicker file={file} onChange={setFile} disabled={uploading} />
 
           <button
             type="submit"
@@ -165,7 +143,7 @@ const PhotoUpload = ({ jobId, locked = false }) => {
           </div>
         )}
 
-        {!photosLoading && photos.length === 0 && (
+        {!photosLoading && visiblePhotos.length === 0 && (
           <p className="text-sm text-gray-400">No photos uploaded yet.</p>
         )}
 

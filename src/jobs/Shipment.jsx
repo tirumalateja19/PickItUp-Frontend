@@ -7,9 +7,13 @@ const Shipment = ({ jobData, jobId, setJobData }) => {
   const [networkName, setNetworkName] = useState("");
   const [recording, setRecording] = useState(false);
 
-  if (!jobData.podSlipGenerated) {
-    return null;
-  }
+    if (!jobData.podSlipGenerated) {
+      return (
+        <p className="text-sm text-gray-500">
+          Generate the pod slip first, then record the shipment here.
+        </p>
+      );
+    }
 
   const handleRecordShipment = async (e) => {
     e.preventDefault();
@@ -33,9 +37,14 @@ const Shipment = ({ jobData, jobId, setJobData }) => {
     }
   };
 
-  if (jobData.status === "Dispatched") {
-    return <p className="text-sm text-gray-600">Job has been dispatched.</p>;
-  }
+    if (jobData.status === "Dispatched") {
+      return (
+        <p className="text-sm text-gray-600">
+          Job has been dispatched
+          {jobData.networkName ? ` via ${jobData.networkName}` : ""}.
+        </p>
+      );
+    }
 
   return (
     <form onSubmit={handleRecordShipment} className="flex flex-col gap-2">

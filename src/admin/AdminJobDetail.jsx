@@ -11,7 +11,7 @@ import JobSummary from "../jobs/JobSummary";
 import { ArrowLeft, Loader2, MessageCircle, Pencil } from "lucide-react";
 import CancelJob from "../jobs/CancelJob";
 import SectionCard from "../jobs/SectionCard";
-import { openWhatsApp } from "../utils/Whatsapp";
+import { openWhatsApp } from "../utils/whatsapp";
 
 const LOCK_REASONS = [
   { value: "review", label: "Review" },

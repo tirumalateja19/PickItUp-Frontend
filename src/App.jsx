@@ -17,6 +17,7 @@ import ArchivedJobs from "./admin/ArchivedJobs.jsx";
 import PartnerStats from "./partner/PartnerStats.jsx";
 import AdminStats from "./admin/AdminStats.jsx";
 import CreateAdmin from "./admin/CreateAdmin.jsx";
+import EditJob from "./admin/EditJob.jsx";
 
 const App = () => {
   return (
@@ -30,6 +31,7 @@ const App = () => {
         <Route element={<AuthGate requiredRole="admin" />}>
           <Route element={<Layout />}>
             <Route path="/admin/dashboard" element={<AdminDashboard />} />
+            <Route path="/admin/jobs/:id/edit" element={<EditJob />}></Route>
             <Route path="/admin/partners" element={<Partners />}></Route>
             <Route
               path="/admin/jobs/create-job"

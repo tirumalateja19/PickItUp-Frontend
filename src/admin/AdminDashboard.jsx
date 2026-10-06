@@ -7,6 +7,7 @@ import {
   Search,
   Loader2,
   Archive,
+  Pencil,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import api from "../api/axios";
@@ -259,6 +260,8 @@ const AdminDashboard = () => {
             const dotColor = STATUS_DOT_COLOR[job.status] || "bg-gray-400";
             const canArchive =
               ARCHIVABLE_STATUSES.includes(job.status) && !job.isArchived;
+            // mirrors the backend rule on PATCH /api/jobs/:id
+            const canEdit = !job.locked && !job.cancelled && !job.isArchived;
 
             return (
               <div
@@ -298,6 +301,16 @@ const AdminDashboard = () => {
                     {job.assignedTo || "Unassigned"}
                   </span>
                 </div>
+
+                {canEdit && (
+                  <Link
+                    to={`/admin/jobs/${job._id}/edit`}
+                    title="Edit job"
+                    className="flex items-center justify-center size-9 rounded-full border border-gray-300 text-gray-500 hover:bg-gray-50 hover:text-black transition shrink-0"
+                  >
+                    <Pencil className="size-4" />
+                  </Link>
+                )}
 
                 <div className="relative shrink-0">
                   <button

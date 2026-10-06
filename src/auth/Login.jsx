@@ -18,13 +18,22 @@ const FEATURES = [
   { icon: Users, label: "Full audit trail across every action" },
 ];
 
+// Only follow internal paths that belong to the role that just logged in,
+// so a partner can't be bounced to an admin page or an outside URL.
+const safeReturnPath = (path, role) =>
+  typeof path === "string" && path.startsWith(`/${role}/`) ? path : null;
+
 const Login = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { loginAdmin, loginPartner } = useAuth();
 
+  // set by AuthGate when it sent the person here from a protected page
+  const returnTo = location.state?.from;
+
   const [activeRole, setActiveRole] = useState(
-    location.state?.preselectRole || "admin",
+    location.state?.preselectRole ||
+      (returnTo?.startsWith("/partner/") ? "partner" : "admin"),
   );
 
   const [userName, setUserName] = useState("");
@@ -52,10 +61,14 @@ const Login = () => {
     try {
       if (activeRole === "admin") {
         await loginAdmin({ userName, password });
-        navigate("/admin/dashboard");
+        navigate(safeReturnPath(returnTo, "admin") || "/admin/dashboard", {
+          replace: true,
+        });
       } else {
         await loginPartner({ userName, password });
-        navigate("/partner/dashboard");
+        navigate(safeReturnPath(returnTo, "partner") || "/partner/dashboard", {
+          replace: true,
+        });
       }
     } catch (err) {
       setError(err?.response?.data?.message || "Login failed");

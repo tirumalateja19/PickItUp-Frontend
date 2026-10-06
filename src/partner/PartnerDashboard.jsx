@@ -1,6 +1,13 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
-import { ChevronDown, Calendar, Lock, Loader2, Search } from "lucide-react";
+import {
+  ChevronDown,
+  Calendar,
+  Lock,
+  Loader2,
+  Search,
+  MapPin,
+} from "lucide-react";
 import api from "../api/axios";
 import toast from "react-hot-toast";
 
@@ -239,6 +246,18 @@ const PartnerDashboard = () => {
                     {job.networkName || "—"}
                   </span>
                 </div>
+                
+                {job.mapLink && (
+                  <a
+                    href={job.mapLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title="Open map"
+                    className="flex items-center justify-center size-9 rounded-full border border-gray-300 text-gray-500 hover:bg-gray-50 hover:text-black transition shrink-0"
+                  >
+                    <MapPin className="size-4" />
+                  </a>
+                )}
 
                 <button
                   onClick={() => handleJobClick(job)}

@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
-import { useParams,Link } from "react-router";
+import { useParams, Link } from "react-router";
 import api from "../api/axios";
 import JobDetailsForm from "../jobs/JobDetailsForm";
 import PhotoUpload from "../jobs/PhotoUpload";
 import SubmitSection from "../jobs/SubmitSection";
 import JobTimeline from "../jobs/JobTimeline";
 import JobSummary from "../jobs/JobSummary";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { ArrowLeft, Loader2, MapPin } from "lucide-react";
 import SectionCard from "../jobs/SectionCard";
 
 const sectionClass = "border-t border-gray-200 pt-5";
@@ -63,6 +63,17 @@ const PartnerJobDetail = () => {
               {clientAddress}, {clientCity}
             </p>
             <p className="text-sm text-gray-600">{clientNumber}</p>
+            {jobData.mapLink && (
+              <a
+                href={jobData.mapLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-3 inline-flex items-center gap-1.5 text-sm px-4 py-1.5 rounded-full border border-gray-300 hover:bg-gray-50 transition"
+              >
+                <MapPin className="size-3.5" />
+                Open map
+              </a>
+            )}
           </div>
 
           <div className={sectionClass}>
@@ -94,7 +105,6 @@ const PartnerJobDetail = () => {
               setJobData={setJobData}
             />
           </SectionCard>
-
         </div>
 
         <div className="flex flex-col gap-6">

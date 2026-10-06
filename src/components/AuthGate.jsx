@@ -1,9 +1,13 @@
-import { Navigate, Outlet } from "react-router";
+import { Navigate, Outlet, useLocation } from "react-router";
 import { useAuth } from "../context/useAuth";
 import { Loader2 } from "lucide-react";
 
+const dashboardFor = (role) =>
+  role === "admin" ? "/admin/dashboard" : "/partner/dashboard";
+
 const AuthGate = ({ requiredRole, guestOnly = false }) => {
   const { user, loading } = useAuth();
+  const location = useLocation();
 
   if (loading) {
     return (
@@ -15,21 +19,33 @@ const AuthGate = ({ requiredRole, guestOnly = false }) => {
 
   if (guestOnly) {
     if (user) {
-      const dashboard =
-        user.role === "admin" ? "/admin/dashboard" : "/partner/dashboard";
-      return <Navigate to={dashboard} replace />;
+      // If the person was sent to login from a protected page (e.g. a job link
+      // from WhatsApp), send them back there, but only within their own area.
+      const from = location.state?.from;
+      const target =
+        typeof from === "string" && from.startsWith(`/${user.role}/`)
+          ? from
+          : dashboardFor(user.role);
+      return <Navigate to={target} replace />;
     }
     return <Outlet />;
   }
 
   if (!user) {
-    return <Navigate to="/" state={{ preselectRole: requiredRole }} replace />;
+    return (
+      <Navigate
+        to="/"
+        replace
+        state={{
+          preselectRole: requiredRole,
+          from: location.pathname + location.search,
+        }}
+      />
+    );
   }
 
   if (requiredRole && user.role !== requiredRole) {
-    const ownDashboard =
-      user.role === "admin" ? "/admin/dashboard" : "/partner/dashboard";
-    return <Navigate to={ownDashboard} replace />;
+    return <Navigate to={dashboardFor(user.role)} replace />;
   }
 
   return <Outlet />;

@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import toast from "react-hot-toast";
 import api from "../api/axios";
+import SharePodButton from "./SharePodButton";
+import { podFileNameFromUrl } from "../utils/podFileName";
 
 const POLL_INTERVAL_MS = 3000;
 const MAX_POLL_ATTEMPTS = 20; // ~1 minute ceiling before giving up
@@ -100,7 +102,7 @@ const SubmitSection = ({ jobData, jobId, setJobData }) => {
       const blobUrl = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = blobUrl;
-      link.download = "pod-slip.pdf";
+      link.download = podFileNameFromUrl(podSlipUrl);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -160,12 +162,15 @@ const SubmitSection = ({ jobData, jobId, setJobData }) => {
         </button>
 
         {!submitting && podSlipUrl && (
-          <button
-            onClick={handleDownloadPodSlip}
-            className="text-sm px-4 py-2 rounded-lg bg-gray-200 text-black hover:bg-gray-300 transition cursor-pointer"
-          >
-            Download pod slip
-          </button>
+          <>
+            <button
+              onClick={handleDownloadPodSlip}
+              className="text-sm px-4 py-2 rounded-lg bg-gray-200 text-black hover:bg-gray-300 transition cursor-pointer"
+            >
+              Download pod slip
+            </button>
+            <SharePodButton key={podSlipUrl} url={podSlipUrl} job={jobData} />
+          </>
         )}
       </div>
     </div>

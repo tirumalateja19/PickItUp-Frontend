@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { normalizeItemName } from "../utils/normalizeItemName";
 
 const ItemNameInput = ({
   value,
@@ -50,6 +51,11 @@ const ItemNameInput = ({
           setOpen(true);
         }}
         onFocus={() => setOpen(true)}
+        // Tidy the name once typing is done, so what you see is what gets saved
+        onBlur={() => {
+          const tidy = normalizeItemName(value);
+          if (tidy !== value) onChange(tidy);
+        }}
         placeholder={placeholder}
         required={required}
         autoComplete="off"

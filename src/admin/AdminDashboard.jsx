@@ -8,6 +8,7 @@ import {
   Loader2,
   Archive,
   Pencil,
+  Download,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import api from "../api/axios";
@@ -90,6 +91,7 @@ const AdminDashboard = () => {
 
   const [confirmArchiveId, setConfirmArchiveId] = useState(null);
   const [archivingId, setArchivingId] = useState(null);
+  const [exporting, setExporting] = useState(false);
 
   // Wait 400ms after typing stops before updating the debounced value.
   useEffect(() => {
@@ -160,6 +162,37 @@ const AdminDashboard = () => {
     } finally {
       setArchivingId(null);
       setConfirmArchiveId(null);
+    }
+  };
+
+  // Exports every job matching the current filters (not just this page)
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const params = {};
+      if (statusFilter) params.status = statusFilter;
+      if (assignedToFilter) params.assignedToId = assignedToFilter;
+      if (fromDate) params.fromDate = fromDate;
+      if (toDate) params.toDate = toDate;
+      if (clientNameFilter) params.clientName = clientNameFilter;
+
+      const response = await api.get("/api/jobs/export/csv", {
+        params,
+        responseType: "blob",
+      });
+      const blobUrl = window.URL.createObjectURL(response.data);
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      link.download = `jobs-${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(blobUrl);
+      toast.success("Export ready");
+    } catch {
+      toast.error("Failed to export jobs");
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -235,6 +268,21 @@ const AdminDashboard = () => {
             className="bg-transparent focus:outline-none text-sm"
           />
         </div>
+
+        <button
+          type="button"
+          onClick={handleExport}
+          disabled={exporting}
+          title="Download the jobs matching the current filters as a CSV file"
+          className="ml-auto flex items-center gap-2 px-4 py-2 rounded-full border border-gray-300 bg-white text-sm text-gray-700 hover:bg-gray-50 transition disabled:opacity-50"
+        >
+          {exporting ? (
+            <Loader2 className="size-4 animate-spin" />
+          ) : (
+            <Download className="size-4" />
+          )}
+          Export CSV
+        </button>
       </div>
 
       {loading && (
@@ -262,6 +310,9 @@ const AdminDashboard = () => {
               ARCHIVABLE_STATUSES.includes(job.status) && !job.isArchived;
             // mirrors the backend rule on PATCH /api/jobs/:id
             const canEdit = !job.locked && !job.cancelled && !job.isArchived;
+            const editBlockedReason = job.locked
+              ? "Job is locked. Unlock it to edit"
+              : "Cancelled jobs can't be edited";
 
             return (
               <div
@@ -302,7 +353,7 @@ const AdminDashboard = () => {
                   </span>
                 </div>
 
-                {canEdit && (
+                {canEdit ? (
                   <Link
                     to={`/admin/jobs/${job._id}/edit`}
                     title="Edit job"
@@ -310,6 +361,15 @@ const AdminDashboard = () => {
                   >
                     <Pencil className="size-4" />
                   </Link>
+                ) : (
+                  <button
+                    type="button"
+                    disabled
+                    title={editBlockedReason}
+                    className="flex items-center justify-center size-9 rounded-full border border-gray-300 text-gray-500 opacity-30 cursor-not-allowed shrink-0"
+                  >
+                    <Pencil className="size-4" />
+                  </button>
                 )}
 
                 <div className="relative shrink-0">
